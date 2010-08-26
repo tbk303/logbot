@@ -15,7 +15,7 @@ import System.IO
 import Data.Time
 import Data.ConfigFile
 
-import Logbot.Backlog (LogState)
+import Logbot.Backlog (LogState, Backlog)
 import qualified Logbot.Backlog as B
 
 data BotCfg = BotCfg
@@ -95,8 +95,8 @@ handleGroupMessage h ms st = do
 		updateBacklog (Just f) (Just m) = do
 			s <- liftIO $ takeMVar ms
 			t <- liftIO $ getCurrentTime
-			l <- return $ "[" ++ (show t) ++ "] " ++ (getResource f) ++ ": " ++ m
-			liftIO $ putMVar ms (B.log s t l)
+			l <- return $ format t f m
+			liftIO $ putMVar ms (B.log s t f m)
 			liftIO $ hPutStrLn h l
 			liftIO $ hFlush h
 		updateBacklog _ _ = return ()
@@ -113,8 +113,20 @@ handleGroupPresence ms st = do
 			liftIO $ putStrLn ("Starting logging for " ++ f)
 		updatePresence (Just f) (Just _) = do
 			s <- liftIO $ takeMVar ms
-			b <- return $ B.backlog s f 
+			b <- return $ B.backlog s f
+			sendBacklog f b
 			liftIO $ putMVar ms (B.join s f)	
 			liftIO $ putStrLn ("Finished logging for " ++ f)
 		updatePresence _ _ = return ()
+
+sendBacklog :: String -> Maybe Backlog -> XMPP ()
+sendBacklog _ Nothing = return ()
+sendBacklog r (Just b) = do
+	_ <- mapM (\(t, f, m) -> send $ format t f m) (B.bLog b)
+	return ()
+		where
+		send = sendGroupchatPrivateMessage (getResource r) (getBareJid r)
+
+format :: UTCTime -> JID -> String -> String
+format t f m = "[" ++ (show t) ++ "] " ++ (getResource f) ++ ": " ++ m
 

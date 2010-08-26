@@ -14,8 +14,7 @@ type JID = String
 type Message = String
 
 data Backlog = Backlog
-	{ bJid :: JID
-	, bLog :: [(UTCTime, Message)]
+	{ bLog :: [(UTCTime, JID, Message)]
 	}
 	deriving Show
 
@@ -26,13 +25,13 @@ data LogState = LogState
 	deriving Show
 
 -- | Log a message for absent JIDs.
-log :: LogState -> UTCTime -> Message -> LogState
-log s t m = s { lLogs = S.fold insert (lLogs s) (lAbsence s) }
+log :: LogState -> UTCTime -> JID -> Message -> LogState
+log s t f m = s { lLogs = S.fold insert (lLogs s) (lAbsence s) }
 	where
 	insert j l = M.alter update j l
 		where
-		update Nothing = Just $ Backlog j [(t,m)]
-		update (Just b) = Just $ b { bLog = (bLog b) ++ [(t,m)] }
+		update Nothing = Just $ Backlog [(t,f,m)]
+		update (Just b) = Just $ b { bLog = (bLog b) ++ [(t,f,m)] }
 
 -- | Retrieve the backlog for the given JID (if present).
 backlog :: LogState -> JID -> Maybe Backlog
